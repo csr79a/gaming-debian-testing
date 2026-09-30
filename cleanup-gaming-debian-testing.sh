@@ -17,8 +17,8 @@
 #      winetricks, protontricks, mesa-utils, lutris y gamescope. Se purgan sin
 #      pantallas de debconf. Si Steam dejó un lanzador .desktop de usuario,
 #      también se ofrece eliminarlo.
-#   2. Flatpak: ProtonPlus, MangoJuice y GOverlay (este último, de versiones
-#      anteriores del setup que lo instalaban), si están instalados.
+#   2. Lanzadores de Steam: si quedaron archivos .desktop de usuario, se
+#      muestran y se ofrece eliminarlos.
 #   3. Flatpak: ProtonPlus, MangoJuice y GOverlay (este último, de versiones
 #      anteriores del setup que lo instalaban), si están instalados.
 #   4. MangoHud compilado (instalado con "ninja install", que dpkg no
