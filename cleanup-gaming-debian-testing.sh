@@ -19,17 +19,22 @@
 #      también se ofrece eliminarlo.
 #   2. Flatpak: ProtonPlus, MangoJuice y GOverlay (este último, de versiones
 #      anteriores del setup que lo instalaban), si están instalados.
+#   3. Flatpak: ProtonPlus, MangoJuice y GOverlay (este último, de versiones
+#      anteriores del setup que lo instalaban), si están instalados.
 #   4. MangoHud compilado (instalado con "ninja install", que dpkg no
 #      conoce): se borran sus rutas conocidas, mostrando antes la lista, y
 #      solo si no pertenecen a ningún paquete de Debian.
-#   4. Ficheros creados por el script (solo si llevan su marca):
+#   5. Ficheros creados por el script (solo si llevan su marca):
 #      /usr/local/bin/game-performance, ~/.config/gamemode.ini,
 #      /etc/sysctl.d/80-gamecompatibility.conf y
 #      /etc/modules-load.d/ntsync.conf. Además, la línea pci_dev de
 #      MangoHud.conf (con pregunta aparte) y el deb-src que se activó para
 #      compilar MangoHud (con pregunta aparte).
-#   5. El enlace /usr/local/bin/wineserver solo se ofrece para eliminarlo
+#   6. El enlace /usr/local/bin/wineserver solo se ofrece para eliminarlo
 #      si apunta exactamente a un wineserver perteneciente a Wine instalado.
+#   7. deb-src en debian.sources: se ofrece retirar la entrada que este
+#      proyecto activó para poder compilar MangoHud.
+#   8. Datos de usuario: solo con --purge-data y confirmación escrita BORRAR.
 #
 # Qué NO toca (es compartido con el resto del sistema):
 #   - power-profiles-daemon (lo usa KDE), flatpak y el remoto Flathub.
