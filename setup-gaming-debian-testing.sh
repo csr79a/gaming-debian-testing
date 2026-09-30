@@ -653,11 +653,8 @@ step_mangohud_compile_nvml() {
     }
 
     # Resuelve automáticamente dependencias de meson que falten, del tipo
-    # 'Dependency "X" not found'. Esto pasa seguido porque 'git clone' de
-    # arriba trae la rama por defecto de upstream SIN fijar tag/versión,
-    # y la reescritura de upstream ("MangoHud next") fue agregando
-    # requisitos nuevos de a uno (ya se vio en la práctica con
-    # wayland-protocols, gbm y egl). En vez de mantener a mano una lista
+    # 'Dependency "X" not found'. Las dependencias se resuelven para el
+    # tag estable fijado en MANGOHUD_TAG. En vez de mantener a mano una lista
     # fija de paquetes en el script (que se desactualiza cada vez que
     # upstream suma un requisito), esta función usa apt-file para
     # averiguar qué paquete Debian provee el archivo <dependencia>.pc y
