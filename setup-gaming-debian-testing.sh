@@ -167,9 +167,10 @@ SOURCES_DIR="/etc/apt/sources.list.d"
 SOURCES_FILE="${SOURCES_DIR}/debian.sources"
 LEGACY_SOURCES="/etc/apt/sources.list"
 
-# Suite en código vigente de Debian Testing. Cambiará el día que esta
-# testing se convierta en stable y otra pase a llamarse "testing" -- si eso
-# ocurre, actualiza este valor.
+# Suite en código vigente de Debian Testing.
+# Durante el ciclo de Testing, el alias "testing" y su codename vigente
+# (actualmente "forky") apuntan a la misma distribución. Cuando Testing pase
+# a stable y otro codename pase a ser Testing, actualiza este valor.
 TESTING_CODENAME="forky"
 
 # Suites de un .sources (debian.sources) que no son testing/<codename>.
@@ -828,29 +829,17 @@ step_gamemode_mangohud() {
 # 6. Winetricks (script oficial vía GitHub) + Protontricks (vía pipx, con GUI)
 # ---------------------------------------------------------------------------
 #
-# Winetricks se instala como script desde su repositorio oficial. Protontricks
-# se instala mediante pipx y se añade su integración gráfica .desktop.
+# Winetricks se instala como script desde su repositorio oficial.
+# Protontricks se instala mediante pipx y se añade su integración gráfica .desktop.
 #
-# Wine del sistema NO se instala automáticamente. La rama Testing actual puede
-# no ofrecer wine/wine64/wine32 y el repositorio WineHQ configurado puede
-# pertenecer a otra suite. Mezclar esas suites puede producir conflictos de
-# dependencias i386, por lo que este script no añade WineHQ ni fuerza Wine.
-# Proton/Steam trae su propio Wine y no necesita el Wine del sistema.
+# Wine del sistema NO se instala automáticamente: Debian Testing puede no
+# ofrecer una combinación compatible de wine/wine64/wine32, y mezclar WineHQ
+# de otra suite puede provocar conflictos de dependencias i386. Proton/Steam
+# trae su propio Wine y no necesita el Wine del sistema.
 #
 # Si el usuario ya tiene Wine instalado, _ensure_wineserver_in_path() intenta
-# hacer disponible wineserver si fuese necesario. Si no hay Wine, Winetricks
-# queda instalado pero su gestión de prefixes normales requiere Wine/wineserver.
-# Wine del sistema NO se instala automáticamente.
-#
-# Debian Testing puede no publicar actualmente wine/wine64/wine32, y el
-# repositorio WineHQ que el usuario tenga configurado puede apuntar a otra
-# suite (por ejemplo, trixie). Este script NO mezcla suites ni añade WineHQ
-# silenciosamente, porque eso puede producir dependencias i386 incompatibles.
-#
-# Winetricks necesita un Wine/wineserver funcional para gestionar prefixes
-# Wine normales. Si el usuario ya tiene Wine instalado, intentamos exponer
-# wineserver si fuese necesario. Si no lo tiene, se informa como opcional:
-# Proton/Steam no necesita el Wine del sistema.
+# exponer wineserver si fuese necesario. Si no lo tiene, Winetricks queda
+# instalado pero no puede gestionar prefixes Wine normales.
 _ensure_wineserver_in_path() {
     local link="/usr/local/bin/wineserver" real="" candidate dpkg_list version
 
@@ -859,6 +848,9 @@ _ensure_wineserver_in_path() {
         return 0
     fi
 
+    # También se contemplan paquetes WineHQ para detectar un wineserver
+    # ya instalado por el usuario. El script no añade ni mezcla repositorios
+    # WineHQ con Debian Testing.
     dpkg_list="$(dpkg -L libwine wine64 winehq-stable winehq-devel winehq-staging 2>/dev/null)"
     while IFS= read -r candidate; do
         if [[ "${candidate##*/}" == "wineserver" && -f "$candidate" && -x "$candidate" ]]; then
@@ -1528,10 +1520,19 @@ step_final_checks() {
         MANUAL_STEPS+=("Si necesitas prefixes Wine normales fuera de Steam, instala una versión de Wine compatible con tu rama de Debian antes de usar Winetricks para ellos.")
     fi
 
-    if command -v wineserver &>/dev/null && version="$(wineserver --version 2>/dev/null)" && [[ -n "$version" ]]; then
+    wineserver_link="/usr/local/bin/wineserver"
+
+    if [[ -L "$wineserver_link" && -x "$wineserver_link" ]]; then
+        version="$("$wineserver_link" --version 2>&1 || true)"
+        if [[ -n "$version" ]]; then
+            _chk OK "wineserver: ${version} (${wineserver_link})"
+        else
+            _chk WARN "wineserver: el enlace ${wineserver_link} existe pero no responde."
+        fi
+    elif command -v wineserver &>/dev/null && version="$(wineserver --version 2>&1)" && [[ -n "$version" ]]; then
         _chk OK "wineserver: ${version} ($(command -v wineserver))"
     else
-        _chk WARN "wineserver: no disponible (Winetricks no podrá gestionar prefixes Wine normales todavía)"
+        _chk NA "wineserver: no disponible (Winetricks no podrá gestionar prefixes Wine normales todavía)"
     fi
 
     if command -v winetricks &>/dev/null; then
