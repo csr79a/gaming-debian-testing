@@ -221,10 +221,91 @@ step_packages() {
 
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
-# 2. Lanzadores de Steam que pueden quedar huérfanos
+# 2. Winetricks y Protontricks instalados fuera de APT
+# ---------------------------------------------------------------------------
+step_wine_tools() {
+    log_step "2/9 · Winetricks y Protontricks"
+
+    local winetricks_bin="/usr/local/bin/winetricks"
+    if [[ -f "$winetricks_bin" ]] && grep -qF 'w_metadata' "$winetricks_bin" 2>/dev/null; then
+        log_info "Winetricks instalado como script en ${winetricks_bin}"
+        if confirm "¿Eliminar este Winetricks instalado por el script?"; then
+            if run sudo rm -f -- "$winetricks_bin"; then
+                log_ok "Winetricks eliminado"
+            else
+                log_err "No se pudo eliminar $winetricks_bin"
+                FAILURES+=("Winetricks")
+            fi
+        else
+            log_info "Se conserva Winetricks"
+        fi
+    else
+        log_ok "No hay Winetricks del script que quitar"
+    fi
+
+    local pipx_out="" desktop_candidates=() found=() path
+    if command -v pipx &>/dev/null; then
+        pipx_out="$(pipx list --short 2>/dev/null || true)"
+        if grep -qx 'protontricks' <<<"$pipx_out"; then
+            log_info "Protontricks está instalado vía pipx"
+            if confirm "¿Desinstalar Protontricks mediante pipx?"; then
+                if run pipx uninstall protontricks; then
+                    log_ok "Protontricks desinstalado vía pipx"
+                else
+                    log_err "No se pudo desinstalar Protontricks mediante pipx"
+                    FAILURES+=("Protontricks")
+                fi
+            else
+                log_info "Se conserva Protontricks"
+            fi
+        else
+            log_ok "Protontricks no está instalado vía pipx"
+        fi
+    else
+        log_ok "pipx no está instalado; no hay Protontricks vía pipx que quitar"
+    fi
+
+    desktop_candidates=(
+        "${HOME}/.local/share/applications/protontricks.desktop"
+        "${HOME}/.local/share/applications/protontricks-launch.desktop"
+    )
+    for path in "${desktop_candidates[@]}"; do
+        [[ -e "$path" || -L "$path" ]] && found+=("$path")
+    done
+
+    if [[ ${#found[@]} -eq 0 ]]; then
+        log_ok "No hay lanzadores de Protontricks que quitar"
+        return 0
+    fi
+
+    log_info "Se han encontrado lanzadores de Protontricks:"
+    printf '      · %s\n' "${found[@]}"
+    if ! confirm "¿Eliminar estos lanzadores de Protontricks del menú?"; then
+        log_info "Se conservan los lanzadores de Protontricks"
+        return 0
+    fi
+
+    for path in "${found[@]}"; do
+        if run rm -f -- "$path"; then
+            log_ok "Lanzador eliminado: $path"
+        else
+            log_err "No se pudo eliminar: $path"
+            FAILURES+=("lanzador Protontricks $path")
+        fi
+    done
+
+    if [[ "$DRY_RUN" -eq 0 ]] && command -v update-desktop-database &>/dev/null; then
+        update-desktop-database "${HOME}/.local/share/applications" &>/dev/null || true
+    elif [[ "$DRY_RUN" -eq 1 ]]; then
+        log_info "[simulación] Se refrescaría la base de datos de aplicaciones"
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# 3. Lanzadores de Steam que pueden quedar huérfanos
 # ---------------------------------------------------------------------------
 step_steam_desktop() {
-    log_step "2/8 · Lanzadores de Steam"
+    log_step "3/9 · Lanzadores de Steam"
 
     # Steam puede dejar un .desktop en el perfil del usuario aunque el paquete
     # haya sido purgado. No tocamos los datos de Steam (~/.steam, biblioteca,
@@ -275,7 +356,7 @@ step_steam_desktop() {
 # 3. Flatpak (ProtonPlus, MangoJuice y GOverlay heredado)
 # ---------------------------------------------------------------------------
 step_flatpak() {
-    log_step "3/8 · Flatpak (ProtonPlus, MangoJuice y GOverlay)"
+    log_step "4/9 · Flatpak (ProtonPlus, MangoJuice y GOverlay)"
 
     if ! command -v flatpak &>/dev/null; then
         log_ok "Flatpak no está instalado; no hay nada que quitar"
@@ -329,7 +410,7 @@ step_flatpak() {
 # las rutas conocidas, y solo si NO pertenecen a ningún paquete de Debian (si
 # algún día instalas el mangohud de Debian, sus ficheros no se tocan).
 step_mangohud() {
-    log_step "4/8 · MangoHud compilado desde fuente"
+    log_step "5/9 · MangoHud compilado desde fuente"
 
     local candidates=(
         /usr/bin/mangohud
@@ -394,7 +475,7 @@ step_mangohud() {
 # Cada fichero solo se borra si lleva la marca (o el contenido exacto) que
 # escribe setup-gaming-debian-testing.sh. Si lo has modificado a mano, no se toca.
 step_config_files() {
-    log_step "5/8 · Ficheros de configuración del script"
+    log_step "6/9 · Ficheros de configuración del script"
 
     local wrapper="/usr/local/bin/game-performance"
     local wrapper_marker="# game-performance v2 -- instalado por setup-gaming-debian-testing.sh"
@@ -500,7 +581,7 @@ step_config_files() {
 # es un symlink que apunta exactamente a un wineserver perteneciente a
 # libwine/wine64 instalado.
 step_wineserver_link() {
-    log_step "6/8 · Enlace de compatibilidad wineserver"
+    log_step "7/9 · Enlace de compatibilidad wineserver"
 
     local link="/usr/local/bin/wineserver"
 
@@ -555,7 +636,7 @@ step_wineserver_link() {
 # 7. deb-src activado para compilar MangoHud (opcional)
 # ---------------------------------------------------------------------------
 step_deb_src() {
-    log_step "7/8 · deb-src en debian.sources (opcional)"
+    log_step "8/9 · deb-src en debian.sources (opcional)"
 
     local sources_file="/etc/apt/sources.list.d/debian.sources"
     if [[ ! -f "$sources_file" ]] || ! grep -qE '^Types: deb deb-src$' "$sources_file"; then
@@ -583,7 +664,7 @@ step_deb_src() {
 # irreversible: por eso solo se ofrece con --purge-data, se muestra antes lo
 # que ocupa cada carpeta y hay que escribir BORRAR. -y no lo acepta.
 step_user_data() {
-    log_step "8/8 · Datos de usuario"
+    log_step "9/9 · Datos de usuario"
 
     local paths=(
         "${HOME}/.steam"
@@ -700,6 +781,7 @@ main() {
     fi
 
     step_packages
+    step_wine_tools
     step_steam_desktop
     step_flatpak
     step_mangohud
