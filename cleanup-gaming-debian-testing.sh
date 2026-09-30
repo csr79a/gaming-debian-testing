@@ -282,7 +282,7 @@ step_flatpak() {
         return 0
     fi
 
-    # El ID de MangoJuice es el mismo que instala setup-gaming-debian-sid.sh.
+    # El ID de MangoJuice es el mismo que instala setup-gaming-debian-testing.sh.
     # GOverlay se mantiene porque versiones anteriores del setup lo instalaban.
     local ids=(com.vysp3r.ProtonPlus io.github.radiolamp.mangojuice io.github.benjamimgois.goverlay)
     local listing id scope found=()
@@ -392,14 +392,14 @@ step_mangohud() {
 # ---------------------------------------------------------------------------
 #
 # Cada fichero solo se borra si lleva la marca (o el contenido exacto) que
-# escribe setup-gaming-debian-sid.sh. Si lo has modificado a mano, no se toca.
+# escribe setup-gaming-debian-testing.sh. Si lo has modificado a mano, no se toca.
 step_config_files() {
     log_step "5/8 · Ficheros de configuración del script"
 
     local wrapper="/usr/local/bin/game-performance"
-    local wrapper_marker="# game-performance v2 -- instalado por setup-gaming-debian-sid.sh"
+    local wrapper_marker="# game-performance v2 -- instalado por setup-gaming-debian-testing.sh"
     local gamemode_ini="${HOME}/.config/gamemode.ini"
-    local gamemode_marker="# gamemode.ini -- configurado por setup-gaming-debian-sid.sh"
+    local gamemode_marker="# gamemode.ini -- configurado por setup-gaming-debian-testing.sh"
     local sysctl_file="/etc/sysctl.d/80-gamecompatibility.conf"
     local ntsync_file="/etc/modules-load.d/ntsync.conf"
 
@@ -494,7 +494,7 @@ step_config_files() {
 # 5. Enlace de compatibilidad de wineserver (opcional)
 # ---------------------------------------------------------------------------
 #
-# setup-gaming-debian-sid.sh puede crear /usr/local/bin/wineserver porque
+# setup-gaming-debian-testing.sh puede crear /usr/local/bin/wineserver porque
 # Wine 10 de Debian dejó de instalar el lanzador en /usr/bin. No se elimina
 # automáticamente: puede haber sido creado manualmente. Solo se ofrece si
 # es un symlink que apunta exactamente a un wineserver perteneciente a
@@ -563,7 +563,7 @@ step_deb_src() {
         return 0
     fi
 
-    log_info "setup-gaming-debian-sid.sh activó deb-src para poder compilar MangoHud, pero es posible que tú también lo uses. Por eso -y no lo revierte."
+    log_info "setup-gaming-debian-testing.sh activó deb-src para poder compilar MangoHud, pero es posible que tú también lo uses. Por eso -y no lo revierte."
     if confirm_always "¿Volver a 'Types: deb' (desactivar deb-src) en ${sources_file}?"; then
         run sudo cp -- "$sources_file" "${sources_file}.bak.$(date +%Y%m%d%H%M%S)"
         if run sudo sed -i 's/^Types: deb deb-src$/Types: deb/' "$sources_file"; then
