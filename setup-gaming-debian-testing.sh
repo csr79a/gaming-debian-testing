@@ -615,17 +615,12 @@ step_mangohud_compile_nvml() {
     # entorno), así que además de reinstalar el paquete, la llamada a
     # meson de abajo fuerza un PKG_CONFIG_PATH estándar de Debian.
     #
-    # wayland-protocols / libgbm-dev: tampoco están cubiertos por 'apt
-    # build-dep mangohud', por el mismo motivo -- ese build-dep refleja
-    # las dependencias del paquete VIEJO de Debian, mientras que 'git
-    # clone' de abajo trae la rama por defecto de upstream (sin fijar
-    # tag/versión). La reescritura de upstream ("MangoHud next") fue
-    # agregando dependencias nuevas de a una: primero wayland-protocols
-    # (backend Wayland), después gbm/libgbm-dev (backend de render). Como
-    # el script no fija una versión del repo, esto puede volver a pasar
-    # con otra dependencia nueva que upstream agregue en el futuro -- si
-    # eso ocurre, agregar el paquete que pida meson en el error a esta
-    # lista es la solución (mismo patrón cada vez).
+    # wayland-protocols / libgbm-dev: se instalan explícitamente porque el
+    # conjunto de dependencias del paquete de Debian no tiene por qué
+    # coincidir con las necesidades de la versión de MangoHud que compilamos.
+    # El repositorio se fija además a un tag estable mediante --branch, así
+    # que una dependencia nueva se incorpora de forma controlada al actualizar
+    # MANGOHUD_TAG.
     if ! sudo apt install -y libcap-dev libyaml-cpp-dev libwayland-egl-backend-dev wayland-protocols libgbm-dev; then
         log_err "No se pudieron instalar las dependencias de compilación (libcap-dev/libyaml-cpp-dev/libwayland-egl-backend-dev/wayland-protocols/libgbm-dev). Se aborta la compilación de MangoHud; el resto del script continúa."
         return 1
@@ -1209,13 +1204,25 @@ step_max_map_count() {
     log_step "10/14 · Ajustando vm.max_map_count"
 
     local sysctl_file="/etc/sysctl.d/80-gamecompatibility.conf"
-    if [[ -f "$sysctl_file" ]] && grep -q '^vm.max_map_count=2147483642' "$sysctl_file"; then
-        log_ok "vm.max_map_count ya estaba configurado"
-    else
-        echo "vm.max_map_count=2147483642" | sudo tee "$sysctl_file" >/dev/null
-        sudo sysctl --system >/dev/null
-        log_ok "vm.max_map_count=2147483642 aplicado (${sysctl_file})"
+    local marker="# vm.max_map_count -- configurado por setup-gaming-debian-testing.sh"
+
+    if [[ -f "$sysctl_file" ]] && grep -qF "$marker" "$sysctl_file" 2>/dev/null; then
+        if grep -q '^vm.max_map_count=2147483642' "$sysctl_file"; then
+            log_ok "vm.max_map_count ya estaba configurado por este script"
+        else
+            log_warn "${sysctl_file} pertenece a este script pero no contiene el valor esperado; se deja intacto para no sobrescribir una modificación manual."
+        fi
+        return
     fi
+
+    if [[ -f "$sysctl_file" ]]; then
+        log_warn "${sysctl_file} ya existe pero no tiene la marca de este script; se deja intacto para no sobrescribir una configuración ajena. Si quieres aplicar este ajuste, revisa el fichero manualmente."
+        return
+    fi
+
+    printf '%s\nvm.max_map_count=2147483642\n' "$marker" | sudo tee "$sysctl_file" >/dev/null
+    sudo sysctl --system >/dev/null
+    log_ok "vm.max_map_count=2147483642 aplicado (${sysctl_file})"
 }
 
 # ---------------------------------------------------------------------------
