@@ -49,7 +49,7 @@ BORRAR
 
 Este borrado puede incluir juegos instalados, prefijos Proton y otros datos locales.
 
-## 5. Paquetes
+## 5. Paquetes y herramientas instaladas fuera de APT
 
 La limpieza contempla los paquetes relacionados con el proyecto, incluyendo:
 
@@ -65,7 +65,15 @@ lutris
 gamescope
 ```
 
-Solo se purgan si están presentes.
+Los elementos que estén instalados como paquetes Debian solo se purgan si están presentes como paquetes APT.
+
+Winetricks y Protontricks requieren un tratamiento diferente porque el instalador de este proyecto los instala fuera de APT:
+
+- **Winetricks**: se instala como script en `/usr/local/bin/winetricks`. El cleanup comprueba que el archivo corresponde al script de Winetricks y ofrece eliminarlo.
+- **Protontricks**: se instala mediante `pipx`. El cleanup comprueba la instalación con `pipx list --short` y ofrece ejecutar `pipx uninstall protontricks`.
+- **Integración gráfica de Protontricks**: `protontricks-desktop-install` puede crear `~/.local/share/applications/protontricks.desktop` y `~/.local/share/applications/protontricks-launch.desktop`; el cleanup los detecta y ofrece eliminarlos.
+
+Estos componentes no se eliminan mediante `apt-get purge`.
 
 ## 6. Steam: icono que queda en el menú
 
