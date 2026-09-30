@@ -174,7 +174,7 @@ check_user() {
 # 1. Paquetes de apt
 # ---------------------------------------------------------------------------
 step_packages() {
-    log_step "1/7 · Paquetes de apt"
+    log_step "1/8 · Paquetes de apt"
 
     local candidates=(steam-installer steam-launcher heroic gamemode winetricks protontricks mesa-utils lutris gamescope)
     local found=() pkg
