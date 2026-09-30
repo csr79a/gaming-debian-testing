@@ -876,7 +876,7 @@ _ensure_wineserver_in_path() {
     fi
     hash -r
 
-    if version="$(wineserver --version 2>/dev/null)" && [[ -n "$version" ]]; then
+    if version="$(wineserver --version 2>&1)" && [[ -n "$version" ]]; then
         log_ok "wineserver disponible (${version})"
     else
         log_warn "El enlace ${link} se creó pero 'wineserver --version' no responde."
