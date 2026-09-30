@@ -978,7 +978,9 @@ _install_or_update_protontricks() {
         fi
     fi
 
-    if pipx list --short 2>/dev/null | grep -qx 'protontricks'; then
+    local pipx_out
+    pipx_out="$(pipx list --short 2>/dev/null || true)"
+    if grep -qx 'protontricks' <<<"$pipx_out"; then
         log_info "Protontricks ya está instalado vía pipx; actualizando"
         if pipx upgrade protontricks &>/dev/null; then
             log_ok "Protontricks actualizado"
@@ -1549,11 +1551,15 @@ step_final_checks() {
     if command -v protontricks &>/dev/null && version="$(protontricks --version 2>/dev/null)" && [[ -n "$version" ]]; then
         protontricks_ok=1
         _chk OK "Protontricks: ${version}"
-    elif pipx list --short 2>/dev/null | grep -qx 'protontricks'; then
-        _chk WARN "Protontricks: instalado vía pipx, pero '~/.local/bin' no está en el PATH de esta sesión"
-        MANUAL_STEPS+=("Abre una terminal nueva (o ejecuta 'source ~/.bashrc') para que 'protontricks' esté disponible.")
     else
-        _chk NA "Protontricks: no responde ('protontricks --version')"
+        local pipx_out
+        pipx_out="$(pipx list --short 2>/dev/null || true)"
+        if grep -qx 'protontricks' <<<"$pipx_out"; then
+            _chk WARN "Protontricks: instalado vía pipx, pero '~/.local/bin' no está en el PATH de esta sesión"
+            MANUAL_STEPS+=("Abre una terminal nueva (o ejecuta 'source ~/.bashrc') para que 'protontricks' esté disponible.")
+        else
+            _chk NA "Protontricks: no responde ('protontricks --version')"
+        fi
     fi
 
     if find "$HOME/.local/share/applications" -maxdepth 1 -type f -iname '*protontricks*.desktop' -print -quit 2>/dev/null | grep -q .; then
