@@ -33,7 +33,7 @@ Instala y configura el entorno de gaming para Debian Testing. El script está di
 
 `cleanup-gaming-debian-testing.sh`
 
-Revierte los componentes instalados o configurados por el script de instalación.
+Revierte los componentes instalados o configurados por el script de instalación que puede identificar. Los componentes instalados fuera de APT, como Winetricks y Protontricks, se limpian mediante sus vías de instalación específicas.
 
 Incluye una limpieza específica de lanzadores `.desktop` de Steam que puedan quedar en el menú de aplicaciones después de desinstalar Steam.
 
@@ -200,4 +200,4 @@ Revisa la lista que muestra el script antes de aceptar cualquier operación.
 
 ## Licencia
 
-Añade aquí la licencia que corresponda al repositorio si todavía no está definida.
+Este proyecto se distribuye bajo la licencia **MIT**. Consulta el archivo `LICENSE` para ver el texto completo de la licencia.
