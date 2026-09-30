@@ -275,7 +275,7 @@ step_steam_desktop() {
 # 3. Flatpak (ProtonPlus, MangoJuice y GOverlay heredado)
 # ---------------------------------------------------------------------------
 step_flatpak() {
-    log_step "2/7 · Flatpak (ProtonPlus, MangoJuice y GOverlay)"
+    log_step "3/8 · Flatpak (ProtonPlus, MangoJuice y GOverlay)"
 
     if ! command -v flatpak &>/dev/null; then
         log_ok "Flatpak no está instalado; no hay nada que quitar"
