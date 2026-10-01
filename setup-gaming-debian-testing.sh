@@ -287,26 +287,26 @@ check_system_prerequisites() {
 
     if [[ -f "$SOURCES_FILE" ]]; then
         if [[ -z "$(awk '/^Suites:/ { print $2 }' "$SOURCES_FILE")" ]]; then
-            log_err "No se encontró ninguna línea 'Suites:' en ${SOURCES_FILE}, así que no se puede comprobar que los repositorios apunten a testing/${TESTING_CODENAME}. Revisa el fichero y vuelve a ejecutar el script."
+            log_err "No se encontró ninguna línea 'Suites:' en ${SOURCES_FILE}, así que no se puede comprobar que los repositorios apunten a testing/${DETECTED_CODENAME}. Revisa el fichero y vuelve a ejecutar el script."
             exit 1
         fi
         bad="$(_sources_file_bad_suites "$SOURCES_FILE")"
-        [[ -n "$bad" ]] && _abort_non_testing "${SOURCES_FILE} contiene suites que no son testing/${TESTING_CODENAME}:" "$bad"
+        [[ -n "$bad" ]] && _abort_non_testing "${SOURCES_FILE} contiene suites que no son testing/${DETECTED_CODENAME}:" "$bad"
     fi
 
     if [[ -f "$LEGACY_SOURCES" ]]; then
         bad="$(_legacy_bad_lines)"
-        [[ -n "$bad" ]] && _abort_non_testing "${LEGACY_SOURCES} contiene repositorios activos de Debian que no apuntan a testing/${TESTING_CODENAME}:" "$bad"
+        [[ -n "$bad" ]] && _abort_non_testing "${LEGACY_SOURCES} contiene repositorios activos de Debian que no apuntan a testing/${DETECTED_CODENAME}:" "$bad"
     fi
 
     bad="$(_other_sources_bad_entries)"
-    [[ -n "$bad" ]] && _abort_non_testing "Hay otros ficheros en ${SOURCES_DIR} con repositorios de Debian que no apuntan a testing/${TESTING_CODENAME}:" "$bad"
+    [[ -n "$bad" ]] && _abort_non_testing "Hay otros ficheros en ${SOURCES_DIR} con repositorios de Debian que no apuntan a testing/${DETECTED_CODENAME}:" "$bad"
 
     if [[ ! -f "$SOURCES_FILE" ]]; then
         log_warn "No se encontró ${SOURCES_FILE} (formato deb822), así que no se puede verificar la suite. Este script no requiere una configuración previa concreta para la mayoría de los pasos (apt resuelve dependencias solo), pero SIN este archivo la compilación de MangoHud con soporte NVML (paso 5) puede fallar por falta de deb-src."
         _confirm_or_exit
     else
-        log_ok "Repositorios en formato deb822 apuntando solo a testing/${TESTING_CODENAME}"
+        log_ok "Repositorios en formato deb822 apuntando solo a testing/${DETECTED_CODENAME}"
     fi
 }
 
