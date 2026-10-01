@@ -33,8 +33,8 @@
 #   ./setup-gaming-debian-testing.sh
 #
 # Requiere un sistema Debian Testing ya instalado y con sus repositorios
-# apuntando a esa suite (alias "testing" o el nombre en código vigente,
-# actualmente "forky"). Repite ejecución: el script es idempotente.
+# apuntando a esa suite (alias "testing" o el codename vigente). Repite
+# ejecución: el script es idempotente.
 
 set -uo pipefail
 
@@ -157,33 +157,65 @@ flatpak_installed() {
 #
 # Este script SOLO trabaja con Debian Testing: se comprueban debian.sources,
 # /etc/apt/sources.list y el resto de ficheros *.sources y *.list de
-# /etc/apt/sources.list.d que apunten a Debian. Solo se aceptan las suites
-# "testing" (el alias que sigue siempre a la testing vigente) y el nombre en
-# código actual de esa testing ("forky" en este momento; cambiará cuando
-# forky se convierta en stable); cualquier otra suite (trixie,
-# trixie-security, bookworm, stable, o una rama de desarrollo) detiene el
-# script sin preguntar. No se convierte ninguna suite automáticamente.
+# /etc/apt/sources.list.d que apunten a Debian.
+#
+# Primero se verifica /etc/os-release para confirmar que el sistema es Debian
+# Testing y obtener el codename vigente. No se acepta una release estable ni
+# se convierte automáticamente stable/unstable a Testing.
+#
+# Se acepta la familia de suites propia de Testing:
+#   - testing
+#   - testing-updates
+#   - testing-security
+#   - el codename vigente (p. ej. forky)
+#   - <codename>-updates
+#   - <codename>-security
+#
+# Cualquier otra suite de Debian (stable, trixie, bookworm, sid, unstable,
+# backports, proposed-updates, etc.) detiene el script sin preguntar.
 SOURCES_DIR="/etc/apt/sources.list.d"
 SOURCES_FILE="${SOURCES_DIR}/debian.sources"
 LEGACY_SOURCES="/etc/apt/sources.list"
 
-# Suite en código vigente de Debian Testing.
-# Durante el ciclo de Testing, el alias "testing" y su codename vigente
-# (actualmente "forky") apuntan a la misma distribución. Cuando Testing pase
-# a stable y otro codename pase a ser Testing, actualiza este valor.
-TESTING_CODENAME="forky"
+DETECTED_CODENAME=""
+if [[ ! -r /etc/os-release ]]; then
+    log_err "No se puede leer /etc/os-release; no se puede confirmar que el sistema sea Debian Testing."
+    exit 1
+fi
+. /etc/os-release
 
-# Suites de un .sources (debian.sources) que no son testing/<codename>.
+if [[ "${ID:-}" != "debian" ]]; then
+    log_err "Este script solo funciona en Debian (ID='${ID:-desconocido}')."
+    exit 1
+fi
+
+if [[ -n "${VERSION_ID:-}" ]]; then
+    log_err "/etc/os-release define VERSION_ID=${VERSION_ID}: este sistema es una release estable, no Debian Testing. No se convierte stable a Testing."
+    exit 1
+fi
+
+DETECTED_CODENAME="${VERSION_CODENAME:-}"
+if [[ -z "$DETECTED_CODENAME" ]]; then
+    log_err "No se pudo detectar VERSION_CODENAME en /etc/os-release; no se puede verificar la suite de Testing."
+    exit 1
+fi
+
+# El alias "testing" y el codename vigente (p. ej. "forky") son equivalentes
+# para la rama Testing. Los sufijos -updates y -security son los repositorios
+# asociados a esa misma rama.
+ACCEPTED_SUITES_REGEX="^(testing|testing-updates|testing-security|${DETECTED_CODENAME}|${DETECTED_CODENAME}-updates|${DETECTED_CODENAME}-security)$"
+
 _sources_file_bad_suites() {
-    awk -v codename="$TESTING_CODENAME" \
-        '/^Suites:/ { for (i = 2; i <= NF; i++) if ($i != "testing" && $i != codename) print $i }' \
-        "$1" | sort -u
+    awk -v acc="$ACCEPTED_SUITES_REGEX" '
+        /^Suites:/ {
+            for (i = 2; i <= NF; i++)
+                if ($i !~ acc) print $i
+        }
+    ' "$1" | sort -u
 }
 
-# Líneas activas de /etc/apt/sources.list que apuntan a un repositorio de
-# Debian con una suite distinta de testing/<codename> (cdrom: se ignora).
 _legacy_bad_lines() {
-    awk -v codename="$TESTING_CODENAME" '
+    awk -v acc="$ACCEPTED_SUITES_REGEX" '
       /^[[:space:]]*deb(-src)?[[:space:]]/ {
         line = $0
         sub(/^[[:space:]]*deb(-src)?[[:space:]]+/, "", line)
@@ -191,28 +223,23 @@ _legacy_bad_lines() {
         split(line, f, /[[:space:]]+/)
         if (f[1] ~ /^cdrom:/) next
         if (tolower(f[1]) !~ /debian/) next
-        if (f[2] != "testing" && f[2] != codename) print $0
-      }' "$LEGACY_SOURCES"
+        if (f[2] !~ acc) print $0
+      }
+    ' "$LEGACY_SOURCES"
 }
 
-# Entradas de OTROS ficheros de sources.list.d que apuntan al archivo de
-# Debian con una suite distinta de testing/<codename>. Una entrada cuenta
-# como "de Debian" si su URI es de debian.org o si usa
-# debian-archive-keyring; así no se marcan repositorios de terceros (Docker,
-# Brave...). Se ignoran las entradas con "Enabled: no". Limitación: un
-# mirror con dominio propio y sin debian-archive-keyring no se reconoce
-# como Debian.
 _other_sources_bad_entries() {
     local f
     for f in "$SOURCES_DIR"/*.sources "$SOURCES_DIR"/*.list; do
         [[ -f "$f" && "$f" != "$SOURCES_FILE" ]] || continue
         case "$f" in
             *.sources)
-                awk -v file="$f" -v codename="$TESTING_CODENAME" '
+                awk -v file="$f" -v acc="$ACCEPTED_SUITES_REGEX" '
                   function flush(   j) {
                     if (n > 0 && enabled && isdeb)
                       for (j = 1; j <= n; j++)
-                        if (suites[j] != "testing" && suites[j] != codename) print file ": Suites: " suites[j]
+                        if (suites[j] !~ acc)
+                          print file ": Suites: " suites[j]
                     n = 0; enabled = 1; isdeb = 0
                   }
                   BEGIN { enabled = 1 }
@@ -226,7 +253,7 @@ _other_sources_bad_entries() {
                 ' "$f"
                 ;;
             *.list)
-                awk -v file="$f" -v codename="$TESTING_CODENAME" '
+                awk -v file="$f" -v acc="$ACCEPTED_SUITES_REGEX" '
                   /^[[:space:]]*deb(-src)?[[:space:]]/ {
                     line = $0; opts = ""
                     sub(/^[[:space:]]*deb(-src)?[[:space:]]+/, "", line)
@@ -234,7 +261,8 @@ _other_sources_bad_entries() {
                     split(line, f2, /[[:space:]]+/)
                     if (f2[1] ~ /^cdrom:/) next
                     isdeb = (tolower(f2[1]) ~ /[\/.]debian\.org(\/|$)/) || (opts ~ /debian-archive-keyring/)
-                    if (isdeb && f2[2] != "testing" && f2[2] != codename) print file ": " $0
+                    if (isdeb && f2[2] !~ acc)
+                      print file ": " $0
                   }
                 ' "$f"
                 ;;
@@ -248,7 +276,7 @@ _abort_non_testing() {
     local title="$1" entries="$2"
     log_warn "$title"
     sed 's/^/      · /' <<<"$entries"
-    log_err "Este script solo trabaja con Debian Testing (suite 'testing' o '${TESTING_CODENAME}') y no convierte otras suites automáticamente. Corrige o desactiva esas entradas a mano y vuelve a ejecutar el script."
+    log_err "Este script solo trabaja con Debian Testing y sus repositorios asociados: testing, testing-updates, testing-security, ${DETECTED_CODENAME}, ${DETECTED_CODENAME}-updates y ${DETECTED_CODENAME}-security. No convierte otras suites automáticamente. Corrige o desactiva esas entradas a mano y vuelve a ejecutar el script."
     exit 1
 }
 
@@ -285,8 +313,8 @@ check_system_prerequisites() {
 # Solo se usa cuando no se puede verificar la suite (falta debian.sources):
 # se pide confirmación explícita antes de continuar.
 _confirm_or_exit() {
-    if [[ ! -t 0 ]]; then
-        log_err "No hay una terminal interactiva para confirmar (stdin no es un tty), así que no se puede preguntar. Se cancela por seguridad en vez de asumir una respuesta. Ejecuta el script en una terminal interactiva."
+    if [[ ! -t 0 || ! -t 1 || -z "${TERM:-}" || "${TERM:-}" == "dumb" ]]; then
+        log_err "No hay una terminal interactiva completa (stdin/stdout/TERM), así que no se puede preguntar. Se cancela por seguridad en vez de asumir una respuesta. Ejecuta el script en una terminal interactiva."
         exit 1
     fi
     read -rp "¿Continuar de todos modos? [s/N]: " respuesta
@@ -300,13 +328,32 @@ _confirm_or_exit() {
 # sin terminal interactiva devuelve 1 (el paso opcional se omite).
 ask_optional() {
     local prompt="$1" respuesta
-    if [[ ! -t 0 ]]; then
-        log_info "Sin terminal interactiva: se omite el paso opcional (${prompt})"
+    if [[ ! -t 0 || ! -t 1 || -z "${TERM:-}" || "${TERM:-}" == "dumb" ]]; then
+        log_info "Sin terminal interactiva completa: se omite el paso opcional (${prompt})"
         return 1
     fi
     read -rp "${prompt} [s/N]: " respuesta
     [[ "$respuesta" =~ ^[sS]$ ]]
 }
+
+# Igual que en el configurador base: lspci solo se usa para la comprobación
+# informativa final de NVIDIA. Si pciutils no está disponible, no se aborta
+# la instalación gaming; simplemente se informa al final de que la detección
+# de hardware PCI no pudo realizarse.
+ensure_cmd() {
+    local cmd="$1" pkg="$2"
+    if command -v "$cmd" >/dev/null 2>&1; then
+        return 0
+    fi
+    log_warn "No se encontró '$cmd'; se intenta instalar '$pkg'..."
+    if sudo apt install -y "$pkg" && command -v "$cmd" >/dev/null 2>&1; then
+        return 0
+    fi
+    log_warn "No se pudo instalar '$pkg'."
+    return 1
+}
+
+LSPCI_OK=0
 
 # ---------------------------------------------------------------------------
 # 1. Steam (steam-installer, repositorio oficial de Debian)
@@ -1699,6 +1746,17 @@ step_final_checks() {
         log_warn "Componentes: ${CHK_OK} OK, ${CHK_WARN} advertencia(s) (acción manual) y ${CHK_NA} no disponible(s)"
     fi
 
+    # --- Detección informativa de NVIDIA vía lspci (como en el configurador base) ---
+    if [[ "${LSPCI_OK:-0}" -eq 1 ]]; then
+        local lspci_out
+        lspci_out="$(lspci 2>/dev/null || true)"
+        if grep -qi nvidia <<<"$lspci_out"; then
+            MANUAL_STEPS+=("Se detectó una GPU NVIDIA por lspci. Este script no instala el driver NVIDIA; gestiónalo aparte según tu hardware.")
+        fi
+    else
+        MANUAL_STEPS+=("lspci no está disponible: no se pudo comprobar automáticamente si hay una GPU NVIDIA.")
+    fi
+
     if [[ ${#MANUAL_STEPS[@]} -gt 0 ]]; then
         echo
         log_info "Pasos manuales pendientes:"
@@ -1808,6 +1866,10 @@ main() {
     if ! sudo apt update; then
         log_warn "'apt update' terminó con errores (puede ser un repositorio concreto o la red). Seguir con índices posiblemente desactualizados no es lo ideal."
         _confirm_or_exit
+    fi
+
+    if ensure_cmd lspci pciutils; then
+        LSPCI_OK=1
     fi
 
     step_steam
